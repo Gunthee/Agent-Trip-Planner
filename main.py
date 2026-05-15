@@ -1,6 +1,9 @@
 import os
 import sys
+from dotenv import load_dotenv
 from rich.prompt import Prompt
+
+load_dotenv()
 
 from logger_utils import console, log_step
 from rag.loader import load_documents_from_dir
@@ -13,13 +16,16 @@ from agent import TravelAgent
 DATA_DIR = "./data"
 CHROMA_DIR = "./chroma_db"
 
-# Backend: "ollama" or "groq"
-BACKEND = os.getenv("LLM_BACKEND", "ollama")
+# Backend: "typhoon" (default) | "ollama" | "groq"
+BACKEND = os.getenv("LLM_BACKEND", "typhoon")
 
-# Ollama model (local)
+# Typhoon model (Thai LLM by SCB10X — needs TYPHOON_API_KEY)
+TYPHOON_MODEL = os.getenv("TYPHOON_MODEL", "typhoon-v2-8b-instruct")
+
+# Ollama model (local, no API key needed)
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 
-# Groq model (cloud, open-source — needs GROQ_API_KEY env var)
+# Groq model (cloud, open-source — needs GROQ_API_KEY)
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
@@ -46,7 +52,14 @@ def main():
     console.rule("[bold blue]Travel Planning Agentic RAG[/bold blue]")
 
     # Determine backend + model
-    if BACKEND == "groq":
+    if BACKEND == "typhoon":
+        model_name = TYPHOON_MODEL
+        if not os.getenv("TYPHOON_API_KEY"):
+            console.print("[red]ERROR: TYPHOON_API_KEY not set.[/red]")
+            console.print("[yellow]  สมัครฟรีได้ที่ https://opentyphoon.ai แล้วรัน:[/yellow]")
+            console.print("[yellow]  set TYPHOON_API_KEY=your_key_here[/yellow]")
+            return
+    elif BACKEND == "groq":
         model_name = GROQ_MODEL
         if not os.getenv("GROQ_API_KEY"):
             console.print("[red]ERROR: GROQ_API_KEY not set. Run: set GROQ_API_KEY=your_key[/red]")

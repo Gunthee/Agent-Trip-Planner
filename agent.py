@@ -42,14 +42,34 @@ def _call_groq(model: str, prompt: str) -> str:
     return resp.json()["choices"][0]["message"]["content"]
 
 
+def _call_typhoon(model: str, prompt: str) -> str:
+    import requests
+    api_key = os.environ.get("TYPHOON_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("TYPHOON_API_KEY environment variable not set.")
+    resp = requests.post(
+        "https://api.opentyphoon.ai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "max_tokens": 1024,
+        },
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
 # ---------------------------------------------------------------------------
 # Agent
 # ---------------------------------------------------------------------------
 
 class TravelAgent:
-    def __init__(self, model_name: str = "qwen2.5:7b", backend: str = "ollama"):
+    def __init__(self, model_name: str = "typhoon-v2-8b-instruct", backend: str = "typhoon"):
         self.model_name = model_name
-        self.backend = backend  # "ollama" or "groq"
+        self.backend = backend  # "ollama", "groq", or "typhoon"
         self.tools: Dict[str, Callable] = {}
 
     def register_tool(self, name: str, func: Callable):
@@ -58,6 +78,8 @@ class TravelAgent:
     def _call_llm(self, prompt: str) -> str:
         if self.backend == "groq":
             return _call_groq(self.model_name, prompt)
+        if self.backend == "typhoon":
+            return _call_typhoon(self.model_name, prompt)
         return _call_ollama(self.model_name, prompt)
 
     def _parse(self, text: str) -> Dict[str, Any]:

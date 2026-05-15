@@ -31,14 +31,14 @@ User Query
 
 ## Tech Stack
 
-| Component        | Technology                          |
-|-----------------|-------------------------------------|
-| LLM             | Ollama — qwen2.5:7b (open-source ≤50B) |
-| Embedding       | sentence-transformers all-MiniLM-L6-v2 |
-| Vector DB       | ChromaDB (persistent)               |
-| Agent Pattern   | Custom ReAct loop (no framework)    |
-| Exchange Rate   | Frankfurter API (free, no key)      |
-| Logging         | Rich (terminal color output)        |
+| Component        | Technology                                          |
+|-----------------|-----------------------------------------------------|
+| LLM             | Typhoon v2 8B Instruct (Thai LLM by SCB10X, ≤50B) |
+| Embedding       | sentence-transformers all-MiniLM-L6-v2              |
+| Vector DB       | ChromaDB (persistent)                               |
+| Agent Pattern   | Custom ReAct loop (no framework)                    |
+| Exchange Rate   | Frankfurter API (free, no key)                      |
+| Logging         | Rich (terminal color output)                        |
 
 ## Tools
 
@@ -55,10 +55,12 @@ User Query
 pip install -r requirements.txt
 ```
 
-### 2. Install and start Ollama
-```bash
-# Install Ollama from https://ollama.com
-ollama pull qwen2.5:7b
+### 2. Get Typhoon API Key (ฟรี)
+1. สมัครที่ opentyphoon.ai
+2. สร้าง API Key
+3. ตั้ง environment variable:
+```powershell
+set TYPHOON_API_KEY=your_key_here
 ```
 
 ### 3. Add travel documents
@@ -69,9 +71,16 @@ Put PDF or TXT files in the `data/` folder. A sample `travel_guide.txt` is alrea
 python main.py
 ```
 
-To use a different Ollama model:
-```bash
-set OLLAMA_MODEL=llama3.2:3b
+เปลี่ยน Typhoon model (เช่น ใช้ 70B):
+```powershell
+set TYPHOON_MODEL=typhoon-v2-70b-instruct
+python main.py
+```
+
+ใช้ Ollama แทน (local, ไม่ต้อง API key):
+```powershell
+set LLM_BACKEND=ollama
+set OLLAMA_MODEL=qwen2.5:7b
 python main.py
 ```
 
