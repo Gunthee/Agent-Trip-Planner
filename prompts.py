@@ -36,5 +36,7 @@ Final Answer: <comprehensive travel plan in Thai language>
 """
 
 
-def build_prompt(user_query: str, history: str = "") -> str:
-    return f"{SYSTEM_PROMPT}\n\nUser Query: {user_query}\n\n{history}"
+def build_messages(user_query: str, history: str = "") -> tuple[str, str]:
+    """Return (system_prompt, user_content) for structured message APIs."""
+    user_content = f"User Query: {user_query}\n\n{history}" if history else f"User Query: {user_query}"
+    return SYSTEM_PROMPT, user_content

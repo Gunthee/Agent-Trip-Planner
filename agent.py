@@ -4,7 +4,7 @@ import re
 from typing import Callable, Dict, Any
 
 from logger_utils import console, log_step, log_thought, log_action, log_observation, log_final_answer
-from prompts import build_prompt
+from prompts import build_messages
 
 MAX_ITERATIONS = 10
 
@@ -12,54 +12,52 @@ MAX_ITERATIONS = 10
 # LLM backend helpers
 # ---------------------------------------------------------------------------
 
-def _call_ollama(model: str, prompt: str) -> str:
+def _call_ollama(model: str, system: str, user: str) -> str:
     import ollama
     response = ollama.chat(
         model=model,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
         options={"temperature": 0.1, "num_predict": 1024},
     )
     return response["message"]["content"]
 
 
-def _call_groq(model: str, prompt: str) -> str:
+def _openai_compatible(url: str, api_key: str, model: str, system: str, user: str) -> str:
     import requests
+    resp = requests.post(
+        url,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0.1,
+            "max_tokens": 1024,
+        },
+        timeout=60,
+    )
+    if not resp.ok:
+        raise RuntimeError(f"{resp.status_code} {resp.reason}: {resp.text}")
+    return resp.json()["choices"][0]["message"]["content"]
+
+
+def _call_groq(model: str, system: str, user: str) -> str:
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         raise RuntimeError("GROQ_API_KEY environment variable not set.")
-    resp = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "max_tokens": 1024,
-        },
-        timeout=60,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    return _openai_compatible("https://api.groq.com/openai/v1/chat/completions", api_key, model, system, user)
 
 
-def _call_typhoon(model: str, prompt: str) -> str:
-    import requests
+def _call_typhoon(model: str, system: str, user: str) -> str:
     api_key = os.environ.get("TYPHOON_API_KEY", "")
     if not api_key:
         raise RuntimeError("TYPHOON_API_KEY environment variable not set.")
-    resp = requests.post(
-        "https://api.opentyphoon.ai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "max_tokens": 1024,
-        },
-        timeout=60,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    return _openai_compatible("https://api.opentyphoon.ai/v1/chat/completions", api_key, model, system, user)
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +65,7 @@ def _call_typhoon(model: str, prompt: str) -> str:
 # ---------------------------------------------------------------------------
 
 class TravelAgent:
-    def __init__(self, model_name: str = "typhoon-v2-8b-instruct", backend: str = "typhoon"):
+    def __init__(self, model_name: str = "typhoon-v2.5-30b-a3b-instruct", backend: str = "typhoon"):
         self.model_name = model_name
         self.backend = backend  # "ollama", "groq", or "typhoon"
         self.tools: Dict[str, Callable] = {}
@@ -75,12 +73,12 @@ class TravelAgent:
     def register_tool(self, name: str, func: Callable):
         self.tools[name] = func
 
-    def _call_llm(self, prompt: str) -> str:
+    def _call_llm(self, system: str, user: str) -> str:
         if self.backend == "groq":
-            return _call_groq(self.model_name, prompt)
+            return _call_groq(self.model_name, system, user)
         if self.backend == "typhoon":
-            return _call_typhoon(self.model_name, prompt)
-        return _call_ollama(self.model_name, prompt)
+            return _call_typhoon(self.model_name, system, user)
+        return _call_ollama(self.model_name, system, user)
 
     def _parse(self, text: str) -> Dict[str, Any]:
         result = {"thought": None, "action": None, "action_input": None, "final_answer": None}
@@ -118,10 +116,10 @@ class TravelAgent:
         for iteration in range(1, MAX_ITERATIONS + 1):
             log_step("Iteration", f"{iteration}/{MAX_ITERATIONS}", "dim")
 
-            prompt = build_prompt(user_query, history)
+            system_prompt, user_content = build_messages(user_query, history)
 
             try:
-                llm_text = self._call_llm(prompt)
+                llm_text = self._call_llm(system_prompt, user_content)
             except Exception as e:
                 log_step("Error", f"LLM call failed: {e}", "red")
                 return f"LLM error: {e}"

@@ -20,7 +20,7 @@ CHROMA_DIR = "./chroma_db"
 BACKEND = os.getenv("LLM_BACKEND", "typhoon")
 
 # Typhoon model (Thai LLM by SCB10X — needs TYPHOON_API_KEY)
-TYPHOON_MODEL = os.getenv("TYPHOON_MODEL", "typhoon-v2-8b-instruct")
+TYPHOON_MODEL = os.getenv("TYPHOON_MODEL", "typhoon-v2.5-30b-a3b-instruct")
 
 # Ollama model (local, no API key needed)
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
